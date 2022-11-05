@@ -47,7 +47,7 @@ func (a *Authoriser) Create(ctx context.Context, claimKey string, claimFunc Clai
 
 	{
 		userClaims, err := claimFunc(claimKey)
-		expiry := TimeFunc().Add(5 * time.Minute)
+		expiry := TimeFunc().Add(15 * time.Minute)
 		claims := jwtClaims{
 			Data: userClaims,
 			StandardClaims: jwt.StandardClaims{
@@ -81,8 +81,8 @@ func (a *Authoriser) Parse(tokenStr string) (Claims, error) {
 	return claims, nil
 }
 
-func (a *Authoriser) Exchange(ctx context.Context, tokenStr string, claimFunc ClaimFunc) (*Authorisation, error) {
-	var key string
+func (a *Authoriser) Exchange(ctx context.Context, tokenStr string, claimFunc ClaimFunc) (*Token, error) {
+	var refreshKey string
 	{
 		token, err := a.parse(tokenStr)
 		if err != nil {
@@ -93,12 +93,12 @@ func (a *Authoriser) Exchange(ctx context.Context, tokenStr string, claimFunc Cl
 		if !ok {
 			return nil, errors.Errorf("unexpected jwt.StandardClaims type, got=%T", claims)
 		}
-		key = claims["sub"].(string)
+		refreshKey = claims["sub"].(string)
 	}
 
 	var authClaims Claims
 	{
-		claimKey, err := a.rw.ReadToken(ctx, key)
+		claimKey, err := a.rw.ReadToken(ctx, refreshKey)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to retrieve refresh token")
 		}
@@ -106,11 +106,35 @@ func (a *Authoriser) Exchange(ctx context.Context, tokenStr string, claimFunc Cl
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to rebuild claims")
 		}
+		if err := a.rw.RevokeToken(ctx, refreshKey); err != nil {
+			return nil, errors.Wrap(err, "unable to revoke refresh token")
+		}
 	}
 
-	var auth *Authorisation
+	res := &Token{}
 	{
-		expiry := TimeFunc().Add(5 * time.Minute)
+		key := xid.New().String()
+		expiry := TimeFunc().AddDate(0, 1, 0)
+		claims := jwt.StandardClaims{
+			Subject:   key,
+			ExpiresAt: expiry.Unix(),
+		}
+		signed, err := a.sign(claims)
+		if err != nil {
+			return nil, errors.Wrap(err, "signing refresh token")
+		}
+		res.Refresh = Authorisation{
+			Token:  signed,
+			Expiry: expiry,
+		}
+
+		if err := a.rw.WriteToken(ctx, key, refreshKey, expiry.Sub(TimeFunc())); err != nil {
+			return nil, errors.Wrap(err, "storing refresh token")
+		}
+	}
+
+	{
+		expiry := TimeFunc().Add(15 * time.Minute)
 		claims := jwtClaims{
 			Data: authClaims,
 			StandardClaims: jwt.StandardClaims{
@@ -121,13 +145,31 @@ func (a *Authoriser) Exchange(ctx context.Context, tokenStr string, claimFunc Cl
 		if err != nil {
 			return nil, errors.Wrap(err, "signing auth token")
 		}
-		auth = &Authorisation{
+		res.Access = Authorisation{
 			Token:  signed,
 			Expiry: expiry,
 		}
 	}
 
-	return auth, nil
+	return res, nil
+}
+
+func (a *Authoriser) Revoke(ctx context.Context, tokenStr string) error {
+	var refreshKey string
+	{
+		token, err := a.parse(tokenStr)
+		if err != nil {
+			return err
+		}
+
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			return errors.Errorf("unexpected jwt.StandardClaims type, got=%T", claims)
+		}
+		refreshKey = claims["sub"].(string)
+	}
+
+	return a.rw.RevokeToken(ctx, refreshKey)
 }
 
 func (a *Authoriser) Verify(ctx context.Context, tokenStr string, claimFunc ClaimFunc) error {
@@ -200,5 +242,6 @@ type Token struct {
 
 type ReadWriter interface {
 	ReadToken(ctx context.Context, key string) (string, error)
+	RevokeToken(ctx context.Context, key string) error
 	WriteToken(ctx context.Context, key, value string, expiry time.Duration) error
 }
