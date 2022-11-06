@@ -172,6 +172,10 @@ func (a *Authoriser) Revoke(ctx context.Context, tokenStr string) error {
 	return a.rw.RevokeToken(ctx, refreshKey)
 }
 
+func (a *Authoriser) RevokeAll(ctx context.Context, value string) error {
+	return a.rw.RevokeValue(ctx, value)
+}
+
 func (a *Authoriser) Verify(ctx context.Context, tokenStr string, claimFunc ClaimFunc) error {
 	var key string
 	{
@@ -243,5 +247,6 @@ type Token struct {
 type ReadWriter interface {
 	ReadToken(ctx context.Context, key string) (string, error)
 	RevokeToken(ctx context.Context, key string) error
+	RevokeValue(ctx context.Context, value string) error
 	WriteToken(ctx context.Context, key, value string, expiry time.Duration) error
 }
