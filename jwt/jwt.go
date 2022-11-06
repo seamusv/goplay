@@ -96,13 +96,15 @@ func (a *Authoriser) Exchange(ctx context.Context, tokenStr string, claimFunc Cl
 		refreshKey = claims["sub"].(string)
 	}
 
+	var claimValue string
 	var authClaims Claims
 	{
-		claimKey, err := a.rw.ReadToken(ctx, refreshKey)
+		var err error
+		claimValue, err = a.rw.ReadToken(ctx, refreshKey)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to retrieve refresh token")
 		}
-		authClaims, err = claimFunc(claimKey)
+		authClaims, err = claimFunc(claimValue)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to rebuild claims")
 		}
@@ -128,7 +130,7 @@ func (a *Authoriser) Exchange(ctx context.Context, tokenStr string, claimFunc Cl
 			Expiry: expiry,
 		}
 
-		if err := a.rw.WriteToken(ctx, key, refreshKey, expiry.Sub(TimeFunc())); err != nil {
+		if err := a.rw.WriteToken(ctx, key, claimValue, expiry.Sub(TimeFunc())); err != nil {
 			return nil, errors.Wrap(err, "storing refresh token")
 		}
 	}
