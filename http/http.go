@@ -13,6 +13,7 @@ type Server struct {
 	http2           bool
 	hostPolicy      autocert.HostPolicy
 	cache           Cache
+	cancel          chan struct{}
 }
 
 type ServerOption func(*Server)
@@ -31,7 +32,7 @@ func NewServer(options ...ServerOption) *Server {
 }
 
 func (s *Server) Close() {
-
+	close(s.cancel)
 }
 
 func WithoutAutoCert() ServerOption {
