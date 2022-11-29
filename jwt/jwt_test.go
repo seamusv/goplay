@@ -2,7 +2,7 @@ package jwt
 
 import (
 	"context"
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -102,4 +102,14 @@ func (m *mockReadWrite) ReadToken(ctx context.Context, key string) (string, erro
 func (m *mockReadWrite) WriteToken(ctx context.Context, key, value string, expiry time.Duration) error {
 	m.store[key] = value
 	return nil
+}
+
+func (m *mockReadWrite) RevokeToken(ctx context.Context, key string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockReadWrite) RevokeValue(ctx context.Context, value string) error {
+	//TODO implement me
+	panic("implement me")
 }

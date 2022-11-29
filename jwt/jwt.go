@@ -2,7 +2,7 @@ package jwt
 
 import (
 	"context"
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"
 	"github.com/rs/xid"
 	"time"
@@ -27,9 +27,9 @@ func (a *Authoriser) Create(ctx context.Context, claimKey string, claimFunc Clai
 	{
 		key := xid.New().String()
 		expiry := TimeFunc().AddDate(0, 1, 0)
-		claims := jwt.StandardClaims{
+		claims := jwt.RegisteredClaims{
 			Subject:   key,
-			ExpiresAt: expiry.Unix(),
+			ExpiresAt: jwt.NewNumericDate(expiry),
 		}
 		signed, err := a.sign(claims)
 		if err != nil {
