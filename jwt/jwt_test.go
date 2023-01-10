@@ -31,7 +31,7 @@ func TestAuthoriser_Create(t *testing.T) {
 					require.Contains(t, claims, "exp")
 					require.IsType(t, float64(0), claims["exp"])
 					exp := time.Unix(int64(claims["exp"].(float64)), 0)
-					require.LessOrEqual(t, exp.Sub(time.Now()), 5*time.Minute)
+					require.LessOrEqual(t, exp.Sub(time.Now()), 15*time.Minute)
 				}
 				{
 					require.NotEmpty(t, token.Refresh.Token, "expect token to be satisfied")

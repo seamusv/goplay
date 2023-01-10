@@ -50,8 +50,8 @@ func (a *Authoriser) Create(ctx context.Context, claimKey string, claimFunc Clai
 		expiry := TimeFunc().Add(15 * time.Minute)
 		claims := jwtClaims{
 			Data: userClaims,
-			StandardClaims: jwt.StandardClaims{
-				ExpiresAt: expiry.Unix(),
+			RegisteredClaims: jwt.RegisteredClaims{
+				ExpiresAt: jwt.NewNumericDate(expiry),
 			},
 		}
 		signed, err := a.sign(claims)
@@ -117,9 +117,9 @@ func (a *Authoriser) Exchange(ctx context.Context, tokenStr string, claimFunc Cl
 	{
 		key := xid.New().String()
 		expiry := TimeFunc().AddDate(0, 1, 0)
-		claims := jwt.StandardClaims{
+		claims := jwt.RegisteredClaims{
 			Subject:   key,
-			ExpiresAt: expiry.Unix(),
+			ExpiresAt: jwt.NewNumericDate(expiry),
 		}
 		signed, err := a.sign(claims)
 		if err != nil {
@@ -139,8 +139,8 @@ func (a *Authoriser) Exchange(ctx context.Context, tokenStr string, claimFunc Cl
 		expiry := TimeFunc().Add(15 * time.Minute)
 		claims := jwtClaims{
 			Data: authClaims,
-			StandardClaims: jwt.StandardClaims{
-				ExpiresAt: expiry.Unix(),
+			RegisteredClaims: jwt.RegisteredClaims{
+				ExpiresAt: jwt.NewNumericDate(expiry),
 			},
 		}
 		signed, err := a.sign(claims)
@@ -233,7 +233,7 @@ type Claimer interface {
 
 type jwtClaims struct {
 	Data Claims
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 }
 
 type Authorisation struct {
