@@ -91,7 +91,7 @@ func (a *Authoriser) Exchange(ctx context.Context, tokenStr string, claimFunc Cl
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
-			return nil, errors.Errorf("unexpected jwt.StandardClaims type, got=%T", claims)
+			return nil, errors.Errorf("unexpected jwt.RegisteredClaims type, got=%T", claims)
 		}
 		refreshKey = claims["sub"].(string)
 	}
@@ -156,7 +156,7 @@ func (a *Authoriser) Exchange(ctx context.Context, tokenStr string, claimFunc Cl
 	return res, nil
 }
 
-func (a *Authoriser) Revoke(ctx context.Context, tokenStr string) error {
+func (a *Authoriser) Revoke(ctx context.Context, tokenStr string, fn func(claimValue string) error) error {
 	var refreshKey string
 	{
 		token, err := a.parse(tokenStr)
@@ -166,9 +166,20 @@ func (a *Authoriser) Revoke(ctx context.Context, tokenStr string) error {
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
-			return errors.Errorf("unexpected jwt.StandardClaims type, got=%T", claims)
+			return errors.Errorf("unexpected jwt.RegisteredClaims type, got=%T", claims)
 		}
 		refreshKey = claims["sub"].(string)
+	}
+
+	{
+		claimValue, err := a.rw.ReadToken(ctx, refreshKey)
+		if err != nil {
+			return errors.Wrap(err, "unable to retrieve refresh token")
+		}
+
+		if err := fn(claimValue); err != nil {
+			return errors.Wrap(err, "unable to revoke refresh token")
+		}
 	}
 
 	return a.rw.RevokeToken(ctx, refreshKey)
@@ -184,7 +195,7 @@ func (a *Authoriser) Verify(ctx context.Context, tokenStr string, claimFunc Clai
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
-			return errors.Errorf("unexpected jwt.StandardClaims type, got=%T", claims)
+			return errors.Errorf("unexpected jwt.RegisteredClaims type, got=%T", claims)
 		}
 		key = claims["sub"].(string)
 	}
@@ -222,10 +233,6 @@ func (a *Authoriser) parse(value string) (*jwt.Token, error) {
 }
 
 type Claims = map[string]interface{}
-
-type Claimer interface {
-	Builder(key string) (Claims, error)
-}
 
 type jwtClaims struct {
 	Data Claims
