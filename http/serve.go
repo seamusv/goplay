@@ -10,6 +10,7 @@ import (
 	"golang.org/x/net/http2/h2c"
 	"net"
 	"net/http"
+	"time"
 )
 
 func (s *Server) Serve(handler http.Handler) error {
@@ -43,7 +44,12 @@ func (s *Server) Serve(handler http.Handler) error {
 			}
 			g.Add(
 				func() error {
-					return http.Serve(ln, certManager.HTTPHandler(nil))
+					srv := &http.Server{
+						ReadTimeout:  5 * time.Second,
+						WriteTimeout: 10 * time.Second,
+						Handler:      certManager.HTTPHandler(nil),
+					}
+					return srv.Serve(ln)
 				},
 				func(err error) {
 					_ = ln.Close()
@@ -66,7 +72,12 @@ func (s *Server) Serve(handler http.Handler) error {
 				if s.http2 {
 					handler = h2c.NewHandler(handler, &http2.Server{})
 				}
-				return http.Serve(lnTLS, handler)
+				srv := &http.Server{
+					ReadTimeout:  5 * time.Second,
+					WriteTimeout: 10 * time.Second,
+					Handler:      handler,
+				}
+				return srv.Serve(lnTLS)
 			},
 			func(err error) {
 				_ = lnTLS.Close()
