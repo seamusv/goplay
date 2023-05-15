@@ -3,6 +3,7 @@ package http
 import (
 	"golang.org/x/crypto/acme/autocert"
 	"io/fs"
+	"time"
 )
 
 type Server struct {
@@ -10,7 +11,10 @@ type Server struct {
 	certsFS         fs.ReadFileFS
 	httpAddr        string
 	httpsAddr       string
-	http2           bool
+	useH2C          bool
+	readTimeout     time.Duration
+	writeTimeout    time.Duration
+	idleTimeout     time.Duration
 	hostPolicy      autocert.HostPolicy
 	cache           Cache
 	cancel          chan struct{}
@@ -20,8 +24,11 @@ type ServerOption func(*Server)
 
 func NewServer(options ...ServerOption) *Server {
 	s := &Server{
-		httpAddr:  ":80",
-		httpsAddr: ":443",
+		httpAddr:     ":80",
+		httpsAddr:    ":443",
+		readTimeout:  5 * time.Second,
+		writeTimeout: 0,
+		idleTimeout:  120 * time.Second,
 	}
 
 	for _, option := range options {
@@ -47,6 +54,12 @@ func WithEmbeddedCertificates(fs fs.ReadFileFS) ServerOption {
 	}
 }
 
+func WithH2C() ServerOption {
+	return func(s *Server) {
+		s.useH2C = true
+	}
+}
+
 func WithHTTPAddr(addr string) ServerOption {
 	return func(s *Server) {
 		s.httpAddr = addr
@@ -56,12 +69,6 @@ func WithHTTPAddr(addr string) ServerOption {
 func WithHTTPSAddr(addr string) ServerOption {
 	return func(s *Server) {
 		s.httpsAddr = addr
-	}
-}
-
-func WithHTTP2() ServerOption {
-	return func(s *Server) {
-		s.http2 = true
 	}
 }
 
@@ -86,5 +93,23 @@ func WithCache(cache Cache) ServerOption {
 func WithDirCache(dir string) ServerOption {
 	return func(s *Server) {
 		s.cache = autocert.DirCache(dir)
+	}
+}
+
+func WithReadTimeout(timeout time.Duration) ServerOption {
+	return func(s *Server) {
+		s.readTimeout = timeout
+	}
+}
+
+func WithWriteTimeout(timeout time.Duration) ServerOption {
+	return func(s *Server) {
+		s.writeTimeout = timeout
+	}
+}
+
+func WithIdleTimeout(timeout time.Duration) ServerOption {
+	return func(s *Server) {
+		s.idleTimeout = timeout
 	}
 }

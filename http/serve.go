@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func (s *Server) Serve(handler http.Handler) error {
+func (s *Server) Serve(tlsHandler http.Handler, handler http.Handler) error {
 	var g run.Group
 
 	{
@@ -46,8 +46,9 @@ func (s *Server) Serve(handler http.Handler) error {
 				func() error {
 					srv := &http.Server{
 						ReadTimeout:  5 * time.Second,
-						WriteTimeout: 10 * time.Second,
-						Handler:      certManager.HTTPHandler(nil),
+						WriteTimeout: 0,
+						IdleTimeout:  120 * time.Second,
+						Handler:      certManager.HTTPHandler(handler),
 					}
 					return srv.Serve(ln)
 				},
@@ -69,13 +70,14 @@ func (s *Server) Serve(handler http.Handler) error {
 		}
 		g.Add(
 			func() error {
-				if s.http2 {
-					handler = h2c.NewHandler(handler, &http2.Server{})
+				if s.useH2C {
+					tlsHandler = h2c.NewHandler(tlsHandler, &http2.Server{})
 				}
 				srv := &http.Server{
-					ReadTimeout:  5 * time.Second,
-					WriteTimeout: 10 * time.Second,
-					Handler:      handler,
+					ReadTimeout:  s.readTimeout,
+					WriteTimeout: s.writeTimeout,
+					IdleTimeout:  s.idleTimeout,
+					Handler:      tlsHandler,
 				}
 				return srv.Serve(lnTLS)
 			},
