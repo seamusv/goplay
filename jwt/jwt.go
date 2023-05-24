@@ -2,23 +2,34 @@ package jwt
 
 import (
 	"context"
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/pkg/errors"
 	"github.com/rs/xid"
 	"time"
 )
 
-var TimeFunc = time.Now
-
-type ClaimFunc = func(key string) (Claims, error)
+type ClaimFunc = func(ctx context.Context, key string) (Claims, error)
 
 type Authoriser struct {
-	rw         ReadWriter
-	secretHmac []byte
+	rw            ReadWriter
+	secretHmac    []byte
+	accessExpiry  time.Duration
+	refreshExpiry time.Duration
 }
 
-func NewAuthoriser(rw ReadWriter, secretHmac []byte) *Authoriser {
-	return &Authoriser{rw: rw, secretHmac: secretHmac}
+func NewAuthoriser(rw ReadWriter, secretHmac []byte, options ...Option) *Authoriser {
+	a := &Authoriser{
+		rw:            rw,
+		secretHmac:    secretHmac,
+		accessExpiry:  15 * time.Minute,
+		refreshExpiry: 30 * 24 * time.Hour,
+	}
+
+	for _, option := range options {
+		option(a)
+	}
+
+	return a
 }
 
 func (a *Authoriser) Create(ctx context.Context, claimKey string, claimFunc ClaimFunc) (*Token, error) {
@@ -26,7 +37,7 @@ func (a *Authoriser) Create(ctx context.Context, claimKey string, claimFunc Clai
 
 	{
 		key := xid.New().String()
-		expiry := TimeFunc().AddDate(0, 1, 0)
+		expiry := time.Now().Add(a.refreshExpiry)
 		claims := jwt.RegisteredClaims{
 			Subject:   key,
 			ExpiresAt: jwt.NewNumericDate(expiry),
@@ -40,14 +51,14 @@ func (a *Authoriser) Create(ctx context.Context, claimKey string, claimFunc Clai
 			Expiry: expiry,
 		}
 
-		if err := a.rw.WriteToken(ctx, key, claimKey, expiry.Sub(TimeFunc())); err != nil {
+		if err := a.rw.WriteToken(ctx, key, claimKey, expiry.Sub(time.Now())); err != nil {
 			return nil, errors.Wrap(err, "storing refresh token")
 		}
 	}
 
 	{
-		userClaims, err := claimFunc(claimKey)
-		expiry := TimeFunc().Add(15 * time.Minute)
+		userClaims, err := claimFunc(ctx, claimKey)
+		expiry := time.Now().Add(a.accessExpiry)
 		claims := jwtClaims{
 			Data: userClaims,
 			RegisteredClaims: jwt.RegisteredClaims{
@@ -104,7 +115,7 @@ func (a *Authoriser) Exchange(ctx context.Context, tokenStr string, claimFunc Cl
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to retrieve refresh token")
 		}
-		authClaims, err = claimFunc(claimValue)
+		authClaims, err = claimFunc(ctx, claimValue)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to rebuild claims")
 		}
@@ -116,7 +127,7 @@ func (a *Authoriser) Exchange(ctx context.Context, tokenStr string, claimFunc Cl
 	res := &Token{}
 	{
 		key := xid.New().String()
-		expiry := TimeFunc().AddDate(0, 1, 0)
+		expiry := time.Now().Add(a.refreshExpiry)
 		claims := jwt.RegisteredClaims{
 			Subject:   key,
 			ExpiresAt: jwt.NewNumericDate(expiry),
@@ -130,13 +141,13 @@ func (a *Authoriser) Exchange(ctx context.Context, tokenStr string, claimFunc Cl
 			Expiry: expiry,
 		}
 
-		if err := a.rw.WriteToken(ctx, key, claimValue, expiry.Sub(TimeFunc())); err != nil {
+		if err := a.rw.WriteToken(ctx, key, claimValue, expiry.Sub(time.Now())); err != nil {
 			return nil, errors.Wrap(err, "storing refresh token")
 		}
 	}
 
 	{
-		expiry := TimeFunc().Add(15 * time.Minute)
+		expiry := time.Now().Add(a.accessExpiry)
 		claims := jwtClaims{
 			Data: authClaims,
 			RegisteredClaims: jwt.RegisteredClaims{
@@ -204,18 +215,16 @@ func (a *Authoriser) Verify(ctx context.Context, tokenStr string, claimFunc Clai
 	if err != nil {
 		return errors.Wrap(err, "unable to retrieve refresh token")
 	}
-	_, err = claimFunc(claimKey)
+	_, err = claimFunc(ctx, claimKey)
 	return err
 }
 
 func (a *Authoriser) sign(claims jwt.Claims) (string, error) {
-	jwt.TimeFunc = TimeFunc
 	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
 	return token.SignedString(a.secretHmac)
 }
 
 func (a *Authoriser) parse(value string) (*jwt.Token, error) {
-	jwt.TimeFunc = TimeFunc
 	token, err := jwt.Parse(value, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.Errorf("unexpected token signing method: %v", token.Header["alg"])
@@ -226,9 +235,6 @@ func (a *Authoriser) parse(value string) (*jwt.Token, error) {
 		return nil, err
 	}
 
-	if err := token.Claims.Valid(); err != nil {
-		return nil, err
-	}
 	return token, nil
 }
 

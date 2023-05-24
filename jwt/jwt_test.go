@@ -2,7 +2,7 @@ package jwt
 
 import (
 	"context"
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -47,10 +47,7 @@ func TestAuthoriser_Create(t *testing.T) {
 	for _, tt := range tests {
 		rw := newMockReadWrite()
 		t.Run(tt.name, func(t *testing.T) {
-			a := &Authoriser{
-				rw:         rw,
-				secretHmac: []byte("Welcome to the Jungle!"),
-			}
+			a := NewAuthoriser(rw, []byte("Welcome to the Jungle!"))
 			got, err := a.Create(context.Background(), tt.claimKey, func(key string) (Claims, error) {
 				return tt.claims, nil
 			})

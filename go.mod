@@ -3,7 +3,7 @@ module github.com/seamusv/goplay
 go 1.19
 
 require (
-	github.com/golang-jwt/jwt/v4 v4.4.3
+	github.com/golang-jwt/jwt/v5 v5.0.0
 	github.com/improbable-eng/grpc-web v0.15.0
 	github.com/oklog/run v1.1.0
 	github.com/pkg/errors v0.9.1
