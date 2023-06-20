@@ -1,10 +1,8 @@
 package jwt
 
 import (
-	"context"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc/metadata"
 	"net/http"
 	"testing"
 )
@@ -87,48 +85,6 @@ func TestCookieTokenExtractor(t *testing.T) {
 			}
 
 			got, err := CookieTokenExtractor("cookie", request)
-			if tt.wantErr != "" {
-				assert.EqualError(t, err, tt.wantErr)
-				return
-			} else {
-				require.NoError(t, err)
-			}
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
-func TestGrpcContextTokenExtractor(t *testing.T) {
-	tests := []struct {
-		name    string
-		value   string
-		want    string
-		wantErr string
-	}{
-		{
-			name:    "no token",
-			wantErr: "named metadata not present",
-		},
-		{
-			name:  "with token",
-			value: "Welcome to the Jungle!",
-			want:  "Welcome to the Jungle!",
-		},
-		{
-			name:    "blank token",
-			value:   "",
-			wantErr: "named metadata not present",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			md := metadata.New(nil)
-			if tt.value != "" {
-				md.Set("token", tt.value)
-			}
-			ctx := metadata.NewIncomingContext(context.Background(), md)
-
-			got, err := GrpcContextTokenExtractor(ctx, "token")
 			if tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 				return

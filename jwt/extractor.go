@@ -1,9 +1,7 @@
 package jwt
 
 import (
-	"context"
 	"github.com/pkg/errors"
-	"google.golang.org/grpc/metadata"
 	"net/http"
 	"strings"
 )
@@ -35,16 +33,4 @@ func CookieTokenExtractor(cookieName string, r *http.Request) (string, error) {
 	}
 
 	return "", nil
-}
-
-func GrpcContextTokenExtractor(ctx context.Context, keyName string) (string, error) {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return "", errors.Errorf("context does not contain incoming metadata")
-	}
-	value := md.Get(keyName)
-	if value == nil || len(value) == 0 {
-		return "", errors.Errorf("named metadata not present")
-	}
-	return value[0], nil
 }

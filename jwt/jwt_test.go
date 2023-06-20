@@ -48,7 +48,7 @@ func TestAuthoriser_Create(t *testing.T) {
 		rw := newMockReadWrite()
 		t.Run(tt.name, func(t *testing.T) {
 			a := NewAuthoriser(rw, []byte("Welcome to the Jungle!"))
-			got, err := a.Create(context.Background(), tt.claimKey, func(key string) (Claims, error) {
+			got, err := a.Create(context.Background(), tt.claimKey, func(ctx context.Context, key string) (Claims, error) {
 				return tt.claims, nil
 			})
 			require.NoError(t, err)
@@ -59,7 +59,7 @@ func TestAuthoriser_Create(t *testing.T) {
 
 func TestAuthoriser_Parse(t *testing.T) {
 	a := NewAuthoriser(newMockReadWrite(), []byte("Welcome to the Jungle!"))
-	token, err := a.Create(context.Background(), "foo", func(key string) (Claims, error) {
+	token, err := a.Create(context.Background(), "foo", func(ctx context.Context, key string) (Claims, error) {
 		return map[string]interface{}{
 			"name": "Bobby",
 		}, nil
