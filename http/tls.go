@@ -11,7 +11,10 @@ type tlsGetCertificatesMiddleware struct {
 func (t *tlsGetCertificatesMiddleware) GetCertificate(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	for _, handler := range t.handlers {
 		cert, err := handler(clientHello)
-		if err == nil {
+		if err != nil {
+			return nil, err
+		}
+		if cert != nil {
 			return cert, nil
 		}
 	}
