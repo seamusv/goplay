@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func loadFromFS(certsFS fs.ReadFileFS) (*tls.Config, error) {
+func loadFromFS(certsFS fs.ReadFileFS) ([]tls.Certificate, error) {
 	var certificates []tls.Certificate
 
 	err := fs.WalkDir(certsFS, ".", func(path string, d fs.DirEntry, err error) error {
@@ -45,21 +45,5 @@ func loadFromFS(certsFS fs.ReadFileFS) (*tls.Config, error) {
 		return nil, err
 	}
 
-	tlsConfig := &tls.Config{
-		Certificates: certificates,
-		MinVersion:   tls.VersionTLS12,
-		CurvePreferences: []tls.CurveID{
-			tls.CurveP256,
-			tls.X25519,
-		},
-		CipherSuites: []uint16{
-			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
-			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-		},
-	}
-	return tlsConfig, nil
+	return certificates, nil
 }

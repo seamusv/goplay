@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/oklog/run"
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -17,14 +18,14 @@ func (s *Server) Serve(tlsHandler http.Handler, handler http.Handler) error {
 	var g run.Group
 
 	{
-		var tlsConfig *tls.Config
+		tlsGetCertificates := &tlsGetCertificatesMiddleware{}
 
 		if s.certsFS != nil {
-			var err error
-			tlsConfig, err = loadFromFS(s.certsFS)
+			certificates, err := loadFromFS(s.certsFS)
 			if err != nil {
 				return errors.Wrap(err, "failed to load certificates from FS")
 			}
+			tlsGetCertificates.Append(staticGetCertificate(certificates))
 		}
 
 		if !s.disableAutoCert {
@@ -37,6 +38,8 @@ func (s *Server) Serve(tlsHandler http.Handler, handler http.Handler) error {
 			if s.cache != nil {
 				certManager.Cache = s.cache
 			}
+
+			tlsGetCertificates.Append(certManager.GetCertificate)
 
 			ln, err := net.Listen("tcp", s.httpAddr)
 			if err != nil {
@@ -56,12 +59,32 @@ func (s *Server) Serve(tlsHandler http.Handler, handler http.Handler) error {
 					_ = ln.Close()
 				},
 			)
+		}
 
-			if tlsConfig == nil {
-				tlsConfig = certManager.TLSConfig()
-			} else {
-				tlsConfig = fallback(tlsConfig, certManager.TLSConfig())
-			}
+		// Documentation: https://wiki.mozilla.org/Security/Server_Side_TLS
+		tlsConfig := &tls.Config{
+			GetCertificate: tlsGetCertificates.GetCertificate,
+			MinVersion:     tls.VersionTLS12,
+			NextProtos: []string{
+				"h2", "http/1.1", // enable HTTP/2
+				acme.ALPNProto, // enable tls-alpn ACME challenges
+			},
+			CurvePreferences: []tls.CurveID{
+				tls.CurveP384,
+				tls.CurveP256,
+				tls.X25519,
+			},
+			CipherSuites: []uint16{
+				tls.TLS_AES_128_GCM_SHA256,
+				tls.TLS_AES_256_GCM_SHA384,
+				tls.TLS_CHACHA20_POLY1305_SHA256,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+				tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+			},
 		}
 
 		lnTLS, err := tls.Listen("tcp", s.httpsAddr, tlsConfig)
@@ -104,16 +127,4 @@ func (s *Server) Serve(tlsHandler http.Handler, handler http.Handler) error {
 	}
 
 	return g.Run()
-}
-
-func fallback(primary *tls.Config, fallback *tls.Config) *tls.Config {
-	return &tls.Config{
-		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-			cert, err := primary.GetCertificate(info)
-			if err != nil {
-				return fallback.GetCertificate(info)
-			}
-			return cert, err
-		},
-	}
 }
