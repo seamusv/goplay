@@ -2,7 +2,7 @@ package pubsub
 
 import (
 	"fmt"
-	"github.com/rs/xid"
+	"github.com/matoous/go-nanoid/v2"
 	"sync"
 )
 
@@ -38,13 +38,13 @@ func Subscribe[T any](topic string, fn func(data T)) func() {
 		}
 		mTopicBus[topic] = b
 	}
-	guid := xid.New()
+	guid := gonanoid.Must(8)
 	ch := make(chan T)
 	b.mu.Lock()
 	if _, found := b.Subs[topic]; found {
-		b.Subs[topic][guid.String()] = ch
+		b.Subs[topic][guid] = ch
 	} else {
-		b.Subs[topic] = map[string]chan T{guid.String(): ch}
+		b.Subs[topic] = map[string]chan T{guid: ch}
 	}
 	b.mu.Unlock()
 
@@ -56,10 +56,10 @@ func Subscribe[T any](topic string, fn func(data T)) func() {
 
 	return func() {
 		b.mu.Lock()
-		ch, ok := b.Subs[topic][guid.String()]
+		ch, ok := b.Subs[topic][guid]
 		if ok {
 			close(ch)
-			delete(b.Subs[topic], guid.String())
+			delete(b.Subs[topic], guid)
 		}
 		b.mu.Unlock()
 	}

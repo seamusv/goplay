@@ -3,8 +3,8 @@ package jwt
 import (
 	"context"
 	"github.com/golang-jwt/jwt/v5"
+	gonanoid "github.com/matoous/go-nanoid/v2"
 	"github.com/pkg/errors"
-	"github.com/rs/xid"
 	"time"
 )
 
@@ -36,7 +36,14 @@ func (a *Authoriser) Create(ctx context.Context, claimKey string, claimFunc Clai
 	res := &Token{}
 
 	{
-		key := xid.New().String()
+		var key string
+		{
+			var err error
+			key, err = gonanoid.New(12)
+			if err != nil {
+				return nil, errors.Wrap(err, "generating refresh token")
+			}
+		}
 		expiry := time.Now().Add(a.refreshExpiry)
 		claims := jwt.RegisteredClaims{
 			Subject:   key,
@@ -126,7 +133,14 @@ func (a *Authoriser) Exchange(ctx context.Context, tokenStr string, claimFunc Cl
 
 	res := &Token{}
 	{
-		key := xid.New().String()
+		var key string
+		{
+			var err error
+			key, err = gonanoid.New(12)
+			if err != nil {
+				return nil, errors.Wrap(err, "generating refresh token")
+			}
+		}
 		expiry := time.Now().Add(a.refreshExpiry)
 		claims := jwt.RegisteredClaims{
 			Subject:   key,
