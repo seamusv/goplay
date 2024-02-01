@@ -32,10 +32,28 @@ func NewAuthoriser(rw ReadWriter, secretHmac []byte, options ...Option) *Authori
 	return a
 }
 
-func (a *Authoriser) Create(ctx context.Context, claimKey string, claimFunc ClaimFunc) (*Token, error) {
+type CreateParams struct {
+	AccessExpiry    time.Duration
+	RefreshExpiry   time.Duration
+	GenerateRefresh bool
+}
+
+type CreateOption func(*CreateParams)
+
+func (a *Authoriser) Create(ctx context.Context, claimKey string, claimFunc ClaimFunc, opt ...CreateOption) (*Token, error) {
+	params := &CreateParams{
+		AccessExpiry:    a.accessExpiry,
+		RefreshExpiry:   a.refreshExpiry,
+		GenerateRefresh: true,
+	}
+
+	for _, o := range opt {
+		o(params)
+	}
+
 	res := &Token{}
 
-	{
+	if params.GenerateRefresh {
 		var key string
 		{
 			var err error
@@ -44,7 +62,7 @@ func (a *Authoriser) Create(ctx context.Context, claimKey string, claimFunc Clai
 				return nil, errors.Wrap(err, "generating refresh token")
 			}
 		}
-		expiry := time.Now().Add(a.refreshExpiry)
+		expiry := time.Now().Add(params.RefreshExpiry)
 		claims := jwt.RegisteredClaims{
 			Subject:   key,
 			ExpiresAt: jwt.NewNumericDate(expiry),
@@ -65,7 +83,7 @@ func (a *Authoriser) Create(ctx context.Context, claimKey string, claimFunc Clai
 
 	{
 		userClaims, err := claimFunc(ctx, claimKey)
-		expiry := time.Now().Add(a.accessExpiry)
+		expiry := time.Now().Add(params.AccessExpiry)
 		claims := jwtClaims{
 			Data: userClaims,
 			RegisteredClaims: jwt.RegisteredClaims{
