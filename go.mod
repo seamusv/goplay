@@ -3,13 +3,13 @@ module github.com/seamusv/goplay
 go 1.19
 
 require (
-	github.com/golang-jwt/jwt/v5 v5.1.0
+	github.com/golang-jwt/jwt/v5 v5.2.0
 	github.com/matoous/go-nanoid/v2 v2.0.0
 	github.com/oklog/run v1.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.8.1
-	golang.org/x/crypto v0.15.0
-	golang.org/x/net v0.18.0
+	golang.org/x/crypto v0.19.0
+	golang.org/x/net v0.21.0
 )
 
 require (

@@ -1,0 +1,46 @@
+# github.com/davecgh/go-spew v1.1.1
+## explicit
+github.com/davecgh/go-spew/spew
+# github.com/golang-jwt/jwt/v5 v5.2.0
+## explicit; go 1.18
+github.com/golang-jwt/jwt/v5
+# github.com/kr/pretty v0.1.0
+## explicit
+# github.com/matoous/go-nanoid/v2 v2.0.0
+## explicit; go 1.15
+github.com/matoous/go-nanoid/v2
+# github.com/oklog/run v1.1.0
+## explicit; go 1.13
+github.com/oklog/run
+# github.com/pkg/errors v0.9.1
+## explicit
+github.com/pkg/errors
+# github.com/pmezard/go-difflib v1.0.0
+## explicit
+github.com/pmezard/go-difflib/difflib
+# github.com/stretchr/testify v1.8.1
+## explicit; go 1.13
+github.com/stretchr/testify/assert
+github.com/stretchr/testify/require
+# golang.org/x/crypto v0.19.0
+## explicit; go 1.18
+golang.org/x/crypto/acme
+golang.org/x/crypto/acme/autocert
+# golang.org/x/net v0.21.0
+## explicit; go 1.18
+golang.org/x/net/http/httpguts
+golang.org/x/net/http2
+golang.org/x/net/http2/h2c
+golang.org/x/net/http2/hpack
+golang.org/x/net/idna
+# golang.org/x/text v0.14.0
+## explicit; go 1.18
+golang.org/x/text/secure/bidirule
+golang.org/x/text/transform
+golang.org/x/text/unicode/bidi
+golang.org/x/text/unicode/norm
+# gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15
+## explicit
+# gopkg.in/yaml.v3 v3.0.1
+## explicit
+gopkg.in/yaml.v3
