@@ -11,10 +11,15 @@ import (
 	"golang.org/x/net/http2/h2c"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 )
 
 func (s *Server) Serve(tlsHandler http.Handler, handler http.Handler) error {
+	if s.closeCh != nil {
+		s.Close()
+	}
+
 	var g run.Group
 
 	{
@@ -59,6 +64,28 @@ func (s *Server) Serve(tlsHandler http.Handler, handler http.Handler) error {
 					_ = ln.Close()
 				},
 			)
+		} else {
+			ln, err := net.Listen("tcp", s.httpAddr)
+			if err != nil {
+				return errors.Wrap(err, "failed to listen on HTTP port")
+			}
+			g.Add(
+				func() error {
+					if s.useH2C {
+						tlsHandler = h2c.NewHandler(tlsHandler, &http2.Server{})
+					}
+					srv := &http.Server{
+						ReadTimeout:  5 * time.Second,
+						WriteTimeout: 0,
+						IdleTimeout:  120 * time.Second,
+						Handler:      handler,
+					}
+					return srv.Serve(ln)
+				},
+				func(err error) {
+					_ = ln.Close()
+				},
+			)
 		}
 
 		// Documentation: https://wiki.mozilla.org/Security/Server_Side_TLS
@@ -93,9 +120,6 @@ func (s *Server) Serve(tlsHandler http.Handler, handler http.Handler) error {
 		}
 		g.Add(
 			func() error {
-				if s.useH2C {
-					tlsHandler = h2c.NewHandler(tlsHandler, &http2.Server{})
-				}
 				srv := &http.Server{
 					ReadTimeout:  s.readTimeout,
 					WriteTimeout: s.writeTimeout,
@@ -111,17 +135,18 @@ func (s *Server) Serve(tlsHandler http.Handler, handler http.Handler) error {
 	}
 
 	{
-		s.cancel = make(chan struct{})
+		s.closeOnce = sync.Once{}
+		s.closeCh = make(chan struct{})
 		g.Add(
 			func() error {
 				select {
-				case <-s.cancel:
+				case <-s.closeCh:
 					fmt.Printf("The first actor was canceled\n")
 					return nil
 				}
 			},
 			func(err error) {
-				close(s.cancel)
+				s.Close()
 			},
 		)
 	}

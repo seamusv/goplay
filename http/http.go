@@ -3,6 +3,7 @@ package http
 import (
 	"golang.org/x/crypto/acme/autocert"
 	"io/fs"
+	"sync"
 	"time"
 )
 
@@ -17,7 +18,8 @@ type Server struct {
 	idleTimeout     time.Duration
 	hostPolicy      autocert.HostPolicy
 	cache           Cache
-	cancel          chan struct{}
+	closeCh         chan struct{}
+	closeOnce       sync.Once
 }
 
 type ServerOption func(*Server)
@@ -39,7 +41,9 @@ func NewServer(options ...ServerOption) *Server {
 }
 
 func (s *Server) Close() {
-	close(s.cancel)
+	s.closeOnce.Do(func() {
+		close(s.closeCh)
+	})
 }
 
 func WithoutAutoCert() ServerOption {
