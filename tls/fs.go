@@ -2,6 +2,7 @@ package tls
 
 import (
 	"crypto/tls"
+	"fmt"
 	"io/fs"
 	"strings"
 )
@@ -14,11 +15,11 @@ func FS(certsFS fs.ReadFileFS) (*tls.Config, error) {
 			if strings.HasSuffix(path, ".pem") {
 				pem, err := certsFS.ReadFile(path)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to read file %s: %w", path, err)
 				}
 				cert, err := tls.X509KeyPair(pem, pem)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to parse certificate %s: %w", path, err)
 				}
 				certificates = append(certificates, cert)
 			}
@@ -26,15 +27,15 @@ func FS(certsFS fs.ReadFileFS) (*tls.Config, error) {
 			if strings.HasSuffix(path, ".crt") {
 				crt, err := certsFS.ReadFile(path)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to read file %s: %w", path, err)
 				}
 				key, err := certsFS.ReadFile(strings.Replace(path, ".crt", ".key", 1))
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to read file %s: %w", strings.Replace(path, ".crt", ".key", 1), err)
 				}
 				certificate, err := tls.X509KeyPair(crt, key)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to parse certificate %s: %w", path, err)
 				}
 				certificates = append(certificates, certificate)
 			}
