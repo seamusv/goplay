@@ -41,6 +41,12 @@ func NewServer(options ...ServerOption) *Server {
 }
 
 func (s *Server) Close() {
+	defer func() {
+		if r := recover(); r != nil {
+			return
+		}
+	}()
+
 	s.closeOnce.Do(func() {
 		close(s.closeCh)
 	})

@@ -48,7 +48,7 @@ func (s *Server) Serve(tlsHandler http.Handler, handler http.Handler) error {
 
 			ln, err := net.Listen("tcp", s.httpAddr)
 			if err != nil {
-				return errors.Wrap(err, "failed to listen on HTTP port")
+				return errors.Wrapf(err, "failed to listen on HTTP port %s", s.httpAddr)
 			}
 			g.Add(
 				func() error {
@@ -67,7 +67,7 @@ func (s *Server) Serve(tlsHandler http.Handler, handler http.Handler) error {
 		} else {
 			ln, err := net.Listen("tcp", s.httpAddr)
 			if err != nil {
-				return errors.Wrap(err, "failed to listen on HTTP port")
+				return errors.Wrapf(err, "failed to listen on HTTP port %s", s.httpAddr)
 			}
 			g.Add(
 				func() error {
@@ -116,7 +116,7 @@ func (s *Server) Serve(tlsHandler http.Handler, handler http.Handler) error {
 
 		lnTLS, err := tls.Listen("tcp", s.httpsAddr, tlsConfig)
 		if err != nil {
-			return errors.Wrap(err, "failed to listen on HTTP port")
+			return errors.Wrapf(err, "failed to listen on HTTPS port %s", s.httpsAddr)
 		}
 		g.Add(
 			func() error {
