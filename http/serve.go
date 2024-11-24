@@ -53,10 +53,11 @@ func (s *Server) Serve(tlsHandler http.Handler, handler http.Handler) error {
 			g.Add(
 				func() error {
 					srv := &http.Server{
-						ReadTimeout:  5 * time.Second,
-						WriteTimeout: 0,
-						IdleTimeout:  120 * time.Second,
-						Handler:      certManager.HTTPHandler(handler),
+						ReadHeaderTimeout: 5 * time.Second,
+						ReadTimeout:       0,
+						WriteTimeout:      0,
+						IdleTimeout:       120 * time.Second,
+						Handler:           certManager.HTTPHandler(handler),
 					}
 					return srv.Serve(ln)
 				},
@@ -75,10 +76,11 @@ func (s *Server) Serve(tlsHandler http.Handler, handler http.Handler) error {
 						tlsHandler = h2c.NewHandler(tlsHandler, &http2.Server{})
 					}
 					srv := &http.Server{
-						ReadTimeout:  5 * time.Second,
-						WriteTimeout: 0,
-						IdleTimeout:  120 * time.Second,
-						Handler:      handler,
+						ReadHeaderTimeout: 5 * time.Second,
+						ReadTimeout:       0,
+						WriteTimeout:      0,
+						IdleTimeout:       120 * time.Second,
+						Handler:           handler,
 					}
 					return srv.Serve(ln)
 				},

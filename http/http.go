@@ -8,29 +8,31 @@ import (
 )
 
 type Server struct {
-	disableAutoCert bool
-	certsFS         fs.ReadFileFS
-	httpAddr        string
-	httpsAddr       string
-	useH2C          bool
-	readTimeout     time.Duration
-	writeTimeout    time.Duration
-	idleTimeout     time.Duration
-	hostPolicy      autocert.HostPolicy
-	cache           Cache
-	closeCh         chan struct{}
-	closeOnce       sync.Once
+	disableAutoCert   bool
+	certsFS           fs.ReadFileFS
+	httpAddr          string
+	httpsAddr         string
+	useH2C            bool
+	readHeaderTimeout time.Duration
+	readTimeout       time.Duration
+	writeTimeout      time.Duration
+	idleTimeout       time.Duration
+	hostPolicy        autocert.HostPolicy
+	cache             Cache
+	closeCh           chan struct{}
+	closeOnce         sync.Once
 }
 
 type ServerOption func(*Server)
 
 func NewServer(options ...ServerOption) *Server {
 	s := &Server{
-		httpAddr:     ":80",
-		httpsAddr:    ":443",
-		readTimeout:  5 * time.Second,
-		writeTimeout: 0,
-		idleTimeout:  120 * time.Second,
+		httpAddr:          ":80",
+		httpsAddr:         ":443",
+		readHeaderTimeout: 5 * time.Second,
+		readTimeout:       0,
+		writeTimeout:      0,
+		idleTimeout:       120 * time.Second,
 	}
 
 	for _, option := range options {
@@ -103,6 +105,12 @@ func WithCache(cache Cache) ServerOption {
 func WithDirCache(dir string) ServerOption {
 	return func(s *Server) {
 		s.cache = autocert.DirCache(dir)
+	}
+}
+
+func WithReadHeaderTimeout(timeout time.Duration) ServerOption {
+	return func(s *Server) {
+		s.readHeaderTimeout = timeout
 	}
 }
 
