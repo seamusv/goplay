@@ -123,10 +123,11 @@ func (s *Server) Serve(tlsHandler http.Handler, handler http.Handler) error {
 		g.Add(
 			func() error {
 				srv := &http.Server{
-					ReadTimeout:  s.readTimeout,
-					WriteTimeout: s.writeTimeout,
-					IdleTimeout:  s.idleTimeout,
-					Handler:      tlsHandler,
+					ReadHeaderTimeout: s.readHeaderTimeout,
+					ReadTimeout:       s.readTimeout,
+					WriteTimeout:      s.writeTimeout,
+					IdleTimeout:       s.idleTimeout,
+					Handler:           tlsHandler,
 				}
 				return srv.Serve(lnTLS)
 			},
