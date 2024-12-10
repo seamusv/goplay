@@ -2,7 +2,6 @@ package http
 
 import (
 	"crypto/tls"
-	"fmt"
 	"github.com/oklog/run"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/acme"
@@ -72,15 +71,19 @@ func (s *Server) Serve(tlsHandler http.Handler, handler http.Handler) error {
 			}
 			g.Add(
 				func() error {
-					if s.useH2C {
-						tlsHandler = h2c.NewHandler(tlsHandler, &http2.Server{})
-					}
 					srv := &http.Server{
 						ReadHeaderTimeout: 5 * time.Second,
 						ReadTimeout:       0,
 						WriteTimeout:      0,
 						IdleTimeout:       120 * time.Second,
 						Handler:           handler,
+					}
+					if s.useH2C {
+						srv.Handler = h2c.NewHandler(handler, &http2.Server{})
+					} else {
+						if err := http2.ConfigureServer(srv, nil); err != nil {
+							return errors.Wrap(err, "failed to configure HTTP/2 server")
+						}
 					}
 					return srv.Serve(ln)
 				},
@@ -144,7 +147,6 @@ func (s *Server) Serve(tlsHandler http.Handler, handler http.Handler) error {
 			func() error {
 				select {
 				case <-s.closeCh:
-					fmt.Printf("The first actor was canceled\n")
 					return nil
 				}
 			},
