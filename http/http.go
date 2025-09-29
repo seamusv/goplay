@@ -1,10 +1,11 @@
 package http
 
 import (
-	"golang.org/x/crypto/acme/autocert"
 	"io/fs"
 	"sync"
 	"time"
+
+	"golang.org/x/crypto/acme/autocert"
 )
 
 type Server struct {
@@ -33,6 +34,7 @@ func NewServer(options ...ServerOption) *Server {
 		readTimeout:       0,
 		writeTimeout:      0,
 		idleTimeout:       120 * time.Second,
+		closeCh:           make(chan struct{}),
 	}
 
 	for _, option := range options {
@@ -43,14 +45,10 @@ func NewServer(options ...ServerOption) *Server {
 }
 
 func (s *Server) Close() {
-	defer func() {
-		if r := recover(); r != nil {
-			return
-		}
-	}()
-
 	s.closeOnce.Do(func() {
-		close(s.closeCh)
+		if s.closeCh != nil {
+			close(s.closeCh)
+		}
 	})
 }
 

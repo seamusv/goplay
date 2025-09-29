@@ -1,24 +1,21 @@
 package http
 
 import (
+	"context"
 	"crypto/tls"
+	"net"
+	"net/http"
+	"time"
+
 	"github.com/oklog/run"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
-	"net"
-	"net/http"
-	"sync"
-	"time"
 )
 
 func (s *Server) Serve(tlsHandler http.Handler, handler http.Handler) error {
-	if s.closeCh != nil {
-		s.Close()
-	}
-
 	var g run.Group
 
 	{
@@ -49,18 +46,24 @@ func (s *Server) Serve(tlsHandler http.Handler, handler http.Handler) error {
 			if err != nil {
 				return errors.Wrapf(err, "failed to listen on HTTP port %s", s.httpAddr)
 			}
+			httpSrv := &http.Server{
+				ReadHeaderTimeout: s.readHeaderTimeout,
+				ReadTimeout:       s.readTimeout,
+				WriteTimeout:      s.writeTimeout,
+				IdleTimeout:       s.idleTimeout,
+				Handler:           certManager.HTTPHandler(handler),
+			}
+			if err := http2.ConfigureServer(httpSrv, nil); err != nil {
+				return errors.Wrap(err, "failed to configure HTTP/2 server")
+			}
 			g.Add(
 				func() error {
-					srv := &http.Server{
-						ReadHeaderTimeout: 5 * time.Second,
-						ReadTimeout:       0,
-						WriteTimeout:      0,
-						IdleTimeout:       120 * time.Second,
-						Handler:           certManager.HTTPHandler(handler),
-					}
-					return srv.Serve(ln)
+					return httpSrv.Serve(ln)
 				},
 				func(err error) {
+					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					defer cancel()
+					_ = httpSrv.Shutdown(ctx)
 					_ = ln.Close()
 				},
 			)
@@ -69,25 +72,28 @@ func (s *Server) Serve(tlsHandler http.Handler, handler http.Handler) error {
 			if err != nil {
 				return errors.Wrapf(err, "failed to listen on HTTP port %s", s.httpAddr)
 			}
+			httpSrv := &http.Server{
+				ReadHeaderTimeout: s.readHeaderTimeout,
+				ReadTimeout:       s.readTimeout,
+				WriteTimeout:      s.writeTimeout,
+				IdleTimeout:       s.idleTimeout,
+				Handler:           handler,
+			}
+			if s.useH2C {
+				httpSrv.Handler = h2c.NewHandler(handler, &http2.Server{})
+			} else {
+				if err := http2.ConfigureServer(httpSrv, nil); err != nil {
+					return errors.Wrap(err, "failed to configure HTTP/2 server")
+				}
+			}
 			g.Add(
 				func() error {
-					srv := &http.Server{
-						ReadHeaderTimeout: 5 * time.Second,
-						ReadTimeout:       0,
-						WriteTimeout:      0,
-						IdleTimeout:       120 * time.Second,
-						Handler:           handler,
-					}
-					if s.useH2C {
-						srv.Handler = h2c.NewHandler(handler, &http2.Server{})
-					} else {
-						if err := http2.ConfigureServer(srv, nil); err != nil {
-							return errors.Wrap(err, "failed to configure HTTP/2 server")
-						}
-					}
-					return srv.Serve(ln)
+					return httpSrv.Serve(ln)
 				},
 				func(err error) {
+					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					defer cancel()
+					_ = httpSrv.Shutdown(ctx)
 					_ = ln.Close()
 				},
 			)
@@ -123,26 +129,27 @@ func (s *Server) Serve(tlsHandler http.Handler, handler http.Handler) error {
 		if err != nil {
 			return errors.Wrapf(err, "failed to listen on HTTPS port %s", s.httpsAddr)
 		}
+		httpsSrv := &http.Server{
+			ReadHeaderTimeout: s.readHeaderTimeout,
+			ReadTimeout:       s.readTimeout,
+			WriteTimeout:      s.writeTimeout,
+			IdleTimeout:       s.idleTimeout,
+			Handler:           tlsHandler,
+		}
 		g.Add(
 			func() error {
-				srv := &http.Server{
-					ReadHeaderTimeout: s.readHeaderTimeout,
-					ReadTimeout:       s.readTimeout,
-					WriteTimeout:      s.writeTimeout,
-					IdleTimeout:       s.idleTimeout,
-					Handler:           tlsHandler,
-				}
-				return srv.Serve(lnTLS)
+				return httpsSrv.Serve(lnTLS)
 			},
 			func(err error) {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				_ = httpsSrv.Shutdown(ctx)
 				_ = lnTLS.Close()
 			},
 		)
 	}
 
 	{
-		s.closeOnce = sync.Once{}
-		s.closeCh = make(chan struct{})
 		g.Add(
 			func() error {
 				select {

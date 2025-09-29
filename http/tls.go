@@ -9,16 +9,18 @@ type tlsGetCertificatesMiddleware struct {
 }
 
 func (t *tlsGetCertificatesMiddleware) GetCertificate(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+	var lastErr error
 	for _, handler := range t.handlers {
 		cert, err := handler(clientHello)
 		if err != nil {
-			return nil, err
+			lastErr = err
+			continue
 		}
 		if cert != nil {
 			return cert, nil
 		}
 	}
-	return nil, nil
+	return nil, lastErr
 }
 
 func (t *tlsGetCertificatesMiddleware) Append(handler GetCertificateFunc) {
