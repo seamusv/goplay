@@ -52,9 +52,5 @@ func loadFromFS(certsFS fs.ReadFileFS) ([]tls.Certificate, error) {
 		return nil, err
 	}
 
-	if len(certificates) == 0 {
-		return nil, fmt.Errorf("no certificates found in filesystem")
-	}
-
 	return certificates, nil
 }

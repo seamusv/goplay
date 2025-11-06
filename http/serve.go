@@ -26,7 +26,9 @@ func (s *Server) Serve(tlsHandler http.Handler, handler http.Handler) error {
 			if err != nil {
 				return errors.Wrap(err, "failed to load certificates from FS")
 			}
-			tlsGetCertificates.Append(staticGetCertificate(certificates))
+			if certificates != nil && len(certificates) > 0 {
+				tlsGetCertificates.Append(staticGetCertificate(certificates))
+			}
 		}
 
 		if !s.disableAutoCert {
